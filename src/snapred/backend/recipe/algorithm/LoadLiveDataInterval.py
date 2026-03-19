@@ -10,7 +10,16 @@ from mantid.api import (
     PythonAlgorithm,
     mtd,
 )
-from mantid.kernel import ConfigService, DateAndTime, Direction
+from mantid.kernel import (
+    BoolTimeSeriesProperty,
+    ConfigService,
+    DateAndTime,
+    Direction,
+    FloatTimeSeriesProperty,
+    Int32TimeSeriesProperty,
+    Int64TimeSeriesProperty,
+    StringTimeSeriesProperty,
+)
 
 from snapred.backend.dao.RunMetadata import RunMetadata
 from snapred.backend.data.util.PV_logs_util import datetimeFromLogTime
@@ -273,6 +282,75 @@ class LoadLiveDataInterval(PythonAlgorithm):
     def _createChildAlgorithm(cls, self_, *args, **kwargs):
         return self_.createChildAlgorithm(*args, **kwargs)
 
+    @classmethod
+    def _checkIntervalOverlaps(
+        cls, interval: Tuple[np.datetime64, np.datetime64], chunkIntervals: List[Tuple[np.datetime64, np.datetime64]]
+    ) -> bool:
+        # Returns True if `interval` overlaps with any interval in `chunkIntervals`.
+        # Two intervals A and B overlap when A.start < B.end AND A.end > B.start.
+        a_start, a_end = interval
+        for b_start, b_end in chunkIntervals:
+            if a_start < b_end and a_end > b_start:
+                return True
+        return False
+
+    @classmethod
+    def _fallbackChunkInterval(
+        cls,
+        ws,
+        requiredStartTime: np.datetime64,
+        chunkIntervals: List[Tuple[np.datetime64, np.datetime64]],
+    ):
+        # Scan the workspace's Run logs for TimeSeriesProperty entries that can provide
+        # a fallback time interval when the loaded chunk contains no events.
+        #
+        # Returns the candidate (start_dt, end_dt) with the largest span, or None if none found.
+
+        _TSP_TYPES = (
+            FloatTimeSeriesProperty,
+            BoolTimeSeriesProperty,
+            Int32TimeSeriesProperty,
+            Int64TimeSeriesProperty,
+            StringTimeSeriesProperty,
+        )
+
+        best_interval = None
+        best_span = np.timedelta64(0, "ns")
+        valid_candidates = []
+
+        for prop in ws.getRun().getProperties():
+            if not isinstance(prop, _TSP_TYPES):
+                continue
+            if prop.size() == 0:
+                continue
+
+            start_dt = prop.firstTime().to_datetime64()
+            end_dt = prop.lastTime().to_datetime64()
+
+            if start_dt >= end_dt:
+                continue
+            if start_dt < requiredStartTime:
+                continue
+            if cls._checkIntervalOverlaps((start_dt, end_dt), chunkIntervals):
+                continue
+
+            valid_candidates.append((prop.name, start_dt, end_dt))
+
+            span = end_dt - start_dt
+            if span > best_span:
+                best_span = span
+                best_interval = (start_dt, end_dt)
+
+        if valid_candidates:
+            lines = "\n".join(
+                f"  '{name}': ({start}, {end})" for name, start, end in valid_candidates
+            )
+            logger.warning(
+                f"Fallback chunk-interval candidates from TimeSeriesProperty logs:\n{lines}"
+            )
+
+        return best_interval
+
     # --------- end: `LoadLiveDataInterval` call break out to static methods. ------------------------------------------
 
     def PyExec(self):
@@ -318,8 +396,29 @@ class LoadLiveDataInterval(PythonAlgorithm):
                     )
                 )
             else:
-                deadTimeDuration = 10 # `SNSLiveEventDataListener` initially accumulates 10 s of data.
-                logger.warning("NO EVENTS in initially-loaded chunk interval.")
+                requiredStartTime = self._requiredLoadInterval(chunkWs, startTime)[0]
+                fallback = self._fallbackChunkInterval(
+                    self.mantidSnapper.mtd[chunkWs], requiredStartTime, self.chunkIntervals
+                )
+                if fallback is not None:
+                    logger.warning(
+                        f"NO EVENTS in initially-loaded chunk: using fallback interval {fallback}."
+                    )
+                    self.chunkIntervals.append(fallback)
+                else:
+                    try:
+                        allowDeadTime = Config["liveData.allowDeadTime"]
+                    except KeyError:
+                        allowDeadTime = False
+                    if not allowDeadTime:
+                        logger.error(
+                            "Initial chunk contained no events and no suitable fallback interval was found."
+                        )
+                        raise RuntimeError(
+                            "Initial chunk contained no events and no suitable fallback interval was found."
+                        )
+                    deadTimeDuration = 10  # `SNSLiveEventDataListener` initially accumulates 10 s of data.
+                    logger.warning("NO EVENTS in initially-loaded chunk interval.")
 
             self.mantidSnapper.CloneWorkspace(
                 "replace output workspace", OutputWorkspace=outputWs, InputWorkspace=chunkWs
@@ -347,11 +446,30 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 #   - when there are no events, `getPulseTimeMin()` and `getPulseTimeMax()` return
                 #     `DateAndTime::maximum()` and `DateAndTime::minimum()` respectively.
                 if not self.mantidSnapper.mtd[chunkWs].getNumberEvents():
-                    deadTimeDuration += waitTimeIncrement
-                    logger.warning(f"NO NEW EVENTS in {waitTimeIncrement} s")
-                    if deadTimeDuration >= maxDeadTime:
-                        # No events for longer than the configured comparison threshold: stop waiting.
-                        break
+                    requiredStartTime = self._requiredLoadInterval(chunkWs, startTime)[0]
+                    fallback = self._fallbackChunkInterval(
+                        self.mantidSnapper.mtd[chunkWs], requiredStartTime, self.chunkIntervals
+                    )
+                    if fallback is not None:
+                        logger.warning(
+                            f"NO NEW EVENTS in {waitTimeIncrement} s: using fallback interval {fallback}."
+                        )
+                        self.chunkIntervals.append(fallback)
+                        deadTimeDuration = 0
+                    else:
+                        try:
+                            allowDeadTime = Config["liveData.allowDeadTime"]
+                        except KeyError:
+                            allowDeadTime = False
+                        if allowDeadTime:
+                            deadTimeDuration += waitTimeIncrement
+                            logger.warning(f"NO NEW EVENTS in {waitTimeIncrement} s")
+                            if deadTimeDuration >= maxDeadTime:
+                                # No events for longer than the configured comparison threshold: stop waiting.
+                                break
+                        else:
+                            logger.warning(f"NO NEW EVENTS in {waitTimeIncrement} s: exiting gracefully.")
+                            break
                     # Skip accumulation / logging for empty chunks.
                     continue
                 else:
