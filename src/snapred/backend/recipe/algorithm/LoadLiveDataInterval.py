@@ -360,6 +360,11 @@ class LoadLiveDataInterval(PythonAlgorithm):
             outputWs = self.getProperty("OutputWorkspace").valueAsStr
             startTime = self.getProperty("StartTime").value
 
+            try:
+                allowDeadTime = Config["liveData.allowDeadTime"]
+            except KeyError:
+                allowDeadTime = False
+
             # Create the "LoadLiveData" child and set its properties.
             loadLiveData = self._createChildAlgorithm(self, "LoadLiveData", 0.0, 0.75, self.isLogging())
             loadLiveData.initialize()
@@ -406,10 +411,6 @@ class LoadLiveDataInterval(PythonAlgorithm):
                     )
                     self.chunkIntervals.append(fallback)
                 else:
-                    try:
-                        allowDeadTime = Config["liveData.allowDeadTime"]
-                    except KeyError:
-                        allowDeadTime = False
                     if not allowDeadTime:
                         logger.error(
                             "Initial chunk contained no events and no suitable fallback interval was found."
@@ -457,10 +458,6 @@ class LoadLiveDataInterval(PythonAlgorithm):
                         self.chunkIntervals.append(fallback)
                         deadTimeDuration = 0
                     else:
-                        try:
-                            allowDeadTime = Config["liveData.allowDeadTime"]
-                        except KeyError:
-                            allowDeadTime = False
                         if allowDeadTime:
                             deadTimeDuration += waitTimeIncrement
                             logger.warning(f"NO NEW EVENTS in {waitTimeIncrement} s")
