@@ -49,6 +49,12 @@ class FetchGroceriesAlgorithm(PythonAlgorithm):
             doc="Workspace containing the loaded data",
         )
         self.declareProperty(
+            "RunStatus",
+            defaultValue="",
+            direction=Direction.Output,
+            doc="Run status information for live-data runs",
+        )
+        self.declareProperty(
             "LoaderType",
             "",
             StringListValidator(
@@ -152,6 +158,7 @@ class FetchGroceriesAlgorithm(PythonAlgorithm):
         filename = self.getPropertyValue("Filename")
         outWS = self.getPropertyValue("OutputWorkspace")
         loaderType = self.getPropertyValue("LoaderType")
+        runStatus = ""
 
         # Allow live-data mode to replace an existing workspace
         addOrReplace = loaderType == "LoadLiveDataInterval"
@@ -184,7 +191,7 @@ class FetchGroceriesAlgorithm(PythonAlgorithm):
                         **{instrumentPropertySource: instrumentSource},
                     )
                 case "LoadLiveDataInterval":
-                    self.mantidSnapper.LoadLiveDataInterval(
+                    _, runStatus = self.mantidSnapper.LoadLiveDataInterval(
                         "loading live-data interval",
                         OutputWorkspace=outWS,
                         Instrument=loaderArgs["Instrument"],
@@ -221,6 +228,7 @@ class FetchGroceriesAlgorithm(PythonAlgorithm):
                     self.mantidSnapper.mtd[name].populateInstrumentParameters()
 
         self.setPropertyValue("OutputWorkspace", outWS)
+        self.setPropertyValue("RunStatus", runStatus)
         self.setPropertyValue("LoaderType", str(loaderType))
 
 

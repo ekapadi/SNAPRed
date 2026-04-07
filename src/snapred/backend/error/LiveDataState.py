@@ -14,7 +14,18 @@ class LiveDataState(Exception):
 
     class Type(Enum):
         UNSET = 0
+        
+        ## ====== NON-TRANSITION STATES: =========
+        
+        NOT_RUNNING = auto()
+        
+        RUNNING = auto()
+        
+        # <total events> == 0: run-number, timing, and logs information may not be reliable
+        DEAD_TIME = auto()
 
+        # ====== TRANSITION STATES: ==============
+        
         # <run number> > 0 <- <run number> == 0
         RUN_START = auto()
 
@@ -33,7 +44,14 @@ class LiveDataState(Exception):
 
         @model_validator(mode="after")
         def _validate_LiveDataState(self):
-            if self.endRunNumber == self.startRunNumber or (
+            if self.model.transition in {
+                LiveDataState.UNSET, LiveDataState.NOT_RUNNING, LiveDataState.RUNNING, LiveDataState.Type.DEAD_TIME
+            }:
+                if self.endRunNumber != self.startRunNumber:
+                    raise ValueError(
+                        f"a non-transition live-data state must have a constant run-number value, not: {self.endRunNumber} <- {self.startRunNumber}"
+                    )                
+            elif self.endRunNumber == self.startRunNumber or (
                 (int(self.endRunNumber) > 0 and int(self.startRunNumber) > 0)
                 and int(self.endRunNumber) < int(self.startRunNumber)
             ):
@@ -68,6 +86,34 @@ class LiveDataState(Exception):
         raw = LiveDataState.Model.model_validate_json(raw)
         return LiveDataState(**raw.dict())
 
+    @staticmethod
+    def running(runNumber: str | int) -> "LiveDataState":
+        return LiveDataState(
+            message="running",
+            transition=LiveDataState.Type.RUNNING,
+            endRunNumber=str(runNumber),
+            startRunNumber=str(runNumber)
+        )
+
+    @staticmethod
+    def notRunning() -> "LiveDataState":
+        runNumber = 0
+        return LiveDataState(
+            message="not running",
+            transition=LiveDataState.Type.NOT_RUNNING,
+            endRunNumber=str(runNumber),
+            startRunNumber=str(runNumber)
+        )
+
+    @staticmethod
+    def deadTimeInterval(runNumber: str | int) -> "LiveDataState":
+        return LiveDataState(
+            message="dead-time interval",
+            transition=LiveDataState.Type.DEAD_TIME,
+            endRunNumber=str(runNumber),
+            startRunNumber=str(runNumber)
+        )
+    
     @staticmethod
     def runStateTransition(endRunNumber: str | int, startRunNumber: str | int) -> "LiveDataState":
         transition = LiveDataState.Type.UNSET

@@ -878,6 +878,27 @@ class GroceryService:
             data = self.grocer.executeRecipe(workspace=workspaceName, loader=loader, loaderArgs=json.dumps(loaderArgs))
             data["fromLiveData"] = True
             if data["result"]:
+                if data["runStatus"]:
+                    try:
+                        liveDataState = LiveDataState.parse_raw(data["runStatus"])
+                        if liveDataState.model.transition not in {LiveDataState.Type.UNSET, LiveDataState.Type.RUNNING}:
+                            # There is some type of issue with the live run.
+                            if not (liveDataState.model.transition == LiveDataState.Type.DEAD_TIME and Config["liveData.allowDeadTime"]):
+                                self.deleteWorkspaceUnconditional(workspaceName)
+                                data = {"result": False}
+                                if liveDataArgs is not None:
+                                    raise liveDataState
+                                raise RuntimeError(
+                                    f"Neutron data for run '{runNumber}' is not present on disk, and there are issues with the live-data run:\n"
+                                    f"    live-data state: {liveDataState}."
+                                )                            
+                    except ValueError as e:
+                        logger.debug(
+                            f"Error when parsing 'RunStatus' returned by `FetchGroceriesAlgorithm`:\n"
+                            f"    {data['runStatus']}:\n"
+                            f"    {e}."
+                        )
+                
                 run = self.mantidSnapper.mtd[workspaceName].getRun()
                 liveRunNumber = run.getProperty("run_number").value if run.hasProperty("run_number") else 0
 
@@ -888,7 +909,7 @@ class GroceryService:
                     if liveDataArgs is not None:
                         raise LiveDataState.runStateTransition(liveRunNumber, runNumber)
                     raise RuntimeError(
-                        f"Neutron data for run '{runNumber}' is not present on disk, " + "nor is it the live-data run"
+                        f"Neutron data for run '{runNumber}' is not present on disk, nor is it the live-data run"
                     )
                 self._loadedRuns[self._key(runNumber, False)] = 0
                 self._liveDataKeys.append(self._key(runNumber, False))
