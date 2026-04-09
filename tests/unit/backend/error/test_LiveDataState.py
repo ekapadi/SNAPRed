@@ -45,11 +45,11 @@ def test_LiveDataState_runStateTransition_unexpected():
 
 def test_LiveDataState_runStateTransition_no_transition():
     # start and end run numbers cannot be the same
-    with pytest.raises(ValueError, match=r"not a run-state transition:.*"):
+    with pytest.raises(ValueError, match=r"Not a valid run-state transition:.*"):
         LiveDataState.runStateTransition("12345", "12345")
 
 
 def test_LiveDataState_runStateTransition_invalid_transition():
     # run numbers cannot decrease, except to zero
-    with pytest.raises(ValueError, match=r"not a run-state transition:.*"):
+    with pytest.raises(ValueError, match=r"Not a valid run-state transition:.*"):
         LiveDataState.runStateTransition("12344", "12345")
