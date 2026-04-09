@@ -397,10 +397,6 @@ class LoadLiveDataInterval(PythonAlgorithm):
             if self.mantidSnapper.mtd[chunkWs].getNumberEvents():
                 run = self.mantidSnapper.mtd[chunkWs].getRun()
                 activeRunNumber = self.mantidSnapper.mtd[chunkWs].getRunNumber()
-                if str(activeRunNumber) == str(0):
-                    raise RuntimeError(
-                        "`LoadLiveDataInterval`: cannot extract chunk from inactive run."
-                    )               
                 runStatus = LiveDataState.running(activeRunNumber)
                 
                 logger.info(f"Run interval: ({run.startTime().to_datetime64()}, {run.endTime().to_datetime64()})")
@@ -496,13 +492,9 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 #   IMPORTANT: this check must be after the dead-time detection section;
                 #   the run-number from a dead-time chunk should never be used to detect the live-data state.
                 runNumber = self.mantidSnapper.mtd[chunkWs].getRunNumber()
-                if not activeRunNumber:
+                if activeRunNumber is None:
                     # This clause executes if the first chunk was actually a dead-time chunk.
                     activeRunNumber = runNumber
-                    if str(activeRunNumber) == str(0):
-                        raise RuntimeError(
-                            "`LoadLiveDataInterval`: cannot extract chunk from inactive run."
-                        )               
                     runStatus = LiveDataState.running(runNumber)
                 elif runNumber != activeRunNumber:
                     runStatus = LiveDataState.runStateTransition(runNumber, activeRunNumber)

@@ -70,7 +70,7 @@ class LiveDataState(Exception):
 
                 if is_same or is_decreasing:
                     raise ValueError(
-                        f"Not a valid run-state transition: "
+                        f"not a run-state transition: "
                         f"{self.endRunNumber} <- {self.startRunNumber}"
                     )
             return self

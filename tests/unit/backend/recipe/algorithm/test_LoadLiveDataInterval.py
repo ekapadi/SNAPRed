@@ -1421,7 +1421,7 @@ class TestLoadLiveDataInterval(unittest.TestCase):
 
             # allowDeadTime is False (default in test config) => should raise.
             with pytest.raises(RuntimeError, match="Initial chunk contained no events"):
-                self.instance.execute()
+                self.instance.PyExec()
 
     def test_exec_initial_chunk_no_events_no_fallback_allow_dead_time_continues(self):
         # When the initial chunk has no events, no fallback is found, but
