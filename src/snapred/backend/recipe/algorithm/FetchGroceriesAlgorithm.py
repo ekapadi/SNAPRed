@@ -198,6 +198,8 @@ class FetchGroceriesAlgorithm(PythonAlgorithm):
                         PreserveEvents=loaderArgs["PreserveEvents"],
                         StartTime=loaderArgs["StartTime"],
                     )
+                    # collapse the `Callback`: *why* is this necessary?
+                    runStatus = str(runStatus)
                 case _:
                     getattr(self.mantidSnapper, loaderType)(
                         f"Loading data using {loaderType}", Filename=filename, OutputWorkspace=outWS, **loaderArgs
