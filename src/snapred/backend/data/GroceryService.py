@@ -17,6 +17,7 @@ from snapred.backend.dao.state import DetectorState
 from snapred.backend.dao.WorkspaceMetadata import UNSET, WorkspaceMetadata
 from snapred.backend.data.LocalDataService import LocalDataService
 from snapred.backend.error.LiveDataState import LiveDataState
+from snapred.backend.error.RunStatus import RunStatus
 from snapred.backend.log.logger import snapredLogger
 from snapred.backend.recipe.algorithm.MantidSnapper import MantidSnapper
 from snapred.backend.recipe.FetchGroceriesRecipe import FetchGroceriesRecipe
@@ -880,18 +881,25 @@ class GroceryService:
             if data["result"]:
                 if data.get("runStatus"):
                     try:
-                        liveDataState = LiveDataState.parse_raw(data["runStatus"])
-                        if liveDataState.model.transition not in {LiveDataState.Type.UNSET, LiveDataState.Type.RUNNING}:
+                        runStatus = RunStatus(data["runStatus"])
+                        if runStatus != RunStatus.RUNNING:
                             # There is some type of issue with the live run.
-                            if not (liveDataState.model.transition == LiveDataState.Type.DEAD_TIME and Config["liveData.allowDeadTime"]):
-                                self.deleteWorkspaceUnconditional(workspaceName)
-                                data = {"result": False}
-                                if liveDataArgs is not None:
-                                    raise liveDataState
-                                raise RuntimeError(
-                                    f"Neutron data for run '{runNumber}' is not present on disk, and there are issues with the live-data run:\n"
-                                    f"    live-data state: {liveDataState}."
-                                )                            
+                            self.deleteWorkspaceUnconditional(workspaceName)
+                            data = {"result": False}
+                            if liveDataArgs is not None:
+                                match runStatus:
+                                    case RunStatus.PAUSED:
+                                        raise LiveDataState.runStateTransition(runNumber, runNumber)
+                                    case RunStatus.STOPPED:
+                                        raise liveDataState.runStateTransition("0", runNumber)
+                                    case RunStatus.ERROR:
+                                        raise liveDataState.runError(runNumber)
+                                    case _:
+                                        raise RuntimeError(f"implementation error: unexpected 'RunStatus' value: '{runStatus}'")
+                            raise RuntimeError(
+                                f"Neutron data for run '{runNumber}' is not present on disk, and there is a problem with the live-data run:\n"
+                                f"    live-run status: {runStatus}."
+                            )                            
                     except ValueError as e:
                         logger.debug(
                             f"Error when parsing 'RunStatus' returned by `FetchGroceriesAlgorithm`:\n"

@@ -15,19 +15,14 @@ class LiveDataState(Exception):
     class Type(Enum):
         UNSET = 0
         
-        ## ====== NON-TRANSITION STATES: =========
-        
-        NOT_RUNNING = auto()
-        
-        RUNNING = auto()
-        
-        # <total events> == 0: run-number, timing, and logs information may not be reliable
-        DEAD_TIME = auto()
-
-        # ====== TRANSITION STATES: ==============
-        
         # <run number> > 0 <- <run number> == 0
         RUN_START = auto()
+
+        # <run number> > 0: no change in <run number>
+        RUN_PAUSE = auto()
+
+        # <run number> > 0: no change in <run number>
+        RUN_ERROR = auto()
 
         # <run number> == 0 <- <run number> > 0
         RUN_END = auto()
@@ -35,44 +30,27 @@ class LiveDataState(Exception):
         # <run number>` != <run number>  <- <run number> > 0
         RUN_GAP = auto()
 
-        @property
-        def is_non_transition_state(self):
-            # Checks if the current member is one of the specific non-transition types
-            return self in {
-                LiveDataState.Type.UNSET,
-                LiveDataState.Type.NOT_RUNNING,
-                LiveDataState.Type.RUNNING,
-                LiveDataState.Type.DEAD_TIME
-            }
-
     class Model(BaseModel):
-        message: str = "unset"
-        transition: "LiveDataState.Type" = Field(
-            default_factory=lambda: LiveDataState.Type.UNSET
-        )
-        endRunNumber: str = "0"
-        startRunNumber: str = "0"
+        message: str
+        transition: "LiveDataState.Type"
+        endRunNumber: str
+        startRunNumber: str
 
         @model_validator(mode="after")
         def _validate_LiveDataState(self):
-            if self.transition.is_non_transition_state:
-                if self.endRunNumber != self.startRunNumber:
-                    raise ValueError(
-                        f"a non-transition live-data state must have a constant run-number value, not: {self.endRunNumber} <- {self.startRunNumber}"
-                    )                
-            else:
-                is_same = self.endRunNumber == self.startRunNumber
-                is_decreasing = (
-                    int(self.endRunNumber) > 0 
-                    and int(self.startRunNumber) > 0 
-                    and int(self.endRunNumber) < int(self.startRunNumber)
-                )
+            is_same = self.endRunNumber == self.startRunNumber
+            is_decreasing = (
+                int(self.endRunNumber) > 0 
+                and int(self.startRunNumber) > 0 
+                and int(self.endRunNumber) < int(self.startRunNumber)
+            )
 
-                if is_same or is_decreasing:
-                    raise ValueError(
-                        f"Not a valid run-state transition: "
-                        f"{self.endRunNumber} <- {self.startRunNumber}"
-                    )
+            if (is_same and self.transition not in {LiveDataState.Type.RUN_PAUSE, LiveDataState.Type.RUN_ABORT})\
+                or is_decreasing:
+                raise ValueError(
+                    f"Not a valid run-state transition: {self.transition}:"
+                    f"    {self.endRunNumber} <- {self.startRunNumber}"
+                )
             return self
 
     def __init__(self, message: str, transition: "Type", endRunNumber: str, startRunNumber: str):
@@ -123,10 +101,10 @@ class LiveDataState(Exception):
         )
 
     @staticmethod
-    def deadTimeInterval(runNumber: str | int) -> "LiveDataState":
+    def runError(runNumber: str | int) -> "LiveDataState":
         return LiveDataState(
-            message="dead-time interval",
-            transition=LiveDataState.Type.DEAD_TIME,
+            message=f"run {runNumber} in error state",
+            transition=LiveDataState.Type.RUN_ERROR,
             endRunNumber=str(runNumber),
             startRunNumber=str(runNumber)
         )
@@ -141,6 +119,9 @@ class LiveDataState(Exception):
         elif int(endRunNumber) == 0 and int(startRunNumber) > 0:
             transition = LiveDataState.Type.RUN_END
             message = f"end of run {startRunNumber}"
+        elif int(endRunNumber) == int(startRunNumber):
+            transition = LiveDataState.Type.RUN_PAUSE
+            message = f"pause of run {startRunNumber}"
         elif int(endRunNumber) > 0 and int(startRunNumber) > 0:
             transition = LiveDataState.Type.RUN_GAP
             message = f"run-number gap: {endRunNumber} <- {startRunNumber}"
