@@ -15,7 +15,6 @@ from mantid.simpleapi import (
     DeleteWorkspaces,
     FilterByTime,
     Plus,
-    mtd
 )
 from util.Config_helpers import Config_override
 
@@ -80,7 +79,6 @@ class TestLoadLiveDataInterval(unittest.TestCase):
         # Set a non-zero run number on all workspaces so that
         # `LoadLiveDataInterval`'s inactive-run guard does not fire.
         _runNumber = "12345"
-        
         mtd[cls.fullWs].mutableRun()["run_number"] = _runNumber
         for ws in cls.chunkWss:
             mtd[ws].mutableRun()["run_number"] = _runNumber
