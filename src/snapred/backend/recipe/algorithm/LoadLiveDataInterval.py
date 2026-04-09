@@ -23,6 +23,7 @@ from mantid.kernel import (
 
 from snapred.backend.dao.RunMetadata import RunMetadata
 from snapred.backend.data.util.PV_logs_util import datetimeFromLogTime
+from snapred.backend.error.LiveDataState import LiveDataState
 from snapred.backend.log.logger import snapredLogger
 from snapred.backend.recipe.algorithm.MantidSnapper import MantidSnapper
 from snapred.meta.Config import Config
@@ -98,12 +99,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
         # This `RunStatus` property will include the JSON-repn of a `LiveDataState.Model`.
         self.declareProperty(
             "RunStatus",
-            defaultValue=LiveDataState.Model(
-                LiveDataState.Type.UNSET.name,
-                LiveDataState.Type.UNSET,
-                "0",
-                "0"
-            ).model_dump_json(), 
+            defaultValue=LiveDataState.unset().model.model_dump_json(), 
             direction=Direction.Output,
             doc=f"Status of the live data run: `LiveDataState.Model`"
         )

@@ -87,6 +87,15 @@ class LiveDataState(Exception):
         return LiveDataState(**raw.dict())
 
     @staticmethod
+    def unset() -> "LiveDataState":
+        return LiveDataState(
+            message="unset",
+            transition=LiveDataState.Type.UNSET,
+            endRunNumber=str(0),
+            startRunNumber=str(0)
+        )
+
+    @staticmethod
     def running(runNumber: str | int) -> "LiveDataState":
         return LiveDataState(
             message="running",
