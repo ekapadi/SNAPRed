@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from snapred.backend.log.logger import snapredLogger
 
@@ -35,27 +35,44 @@ class LiveDataState(Exception):
         # <run number>` != <run number>  <- <run number> > 0
         RUN_GAP = auto()
 
-    class Model(BaseModel):
-        message: str
-        transition: "LiveDataState.Type"
+        @property
+        def is_non_transition_state(self):
+            # Checks if the current member is one of the specific non-transition types
+            return self in {
+                LiveDataState.Type.UNSET,
+                LiveDataState.Type.NOT_RUNNING,
+                LiveDataState.Type.RUNNING,
+                LiveDataState.Type.DEAD_TIME
+            }
 
-        endRunNumber: str
-        startRunNumber: str
+    class Model(BaseModel):
+        message: str = "unset"
+        transition: "LiveDataState.Type" = Field(
+            default_factory=lambda: LiveDataState.Type.UNSET
+        )
+        endRunNumber: str = "0"
+        startRunNumber: str = "0"
 
         @model_validator(mode="after")
         def _validate_LiveDataState(self):
-            if self.model.transition in {
-                LiveDataState.UNSET, LiveDataState.NOT_RUNNING, LiveDataState.RUNNING, LiveDataState.Type.DEAD_TIME
-            }:
+            if self.transition.is_non_transition_state:
                 if self.endRunNumber != self.startRunNumber:
                     raise ValueError(
                         f"a non-transition live-data state must have a constant run-number value, not: {self.endRunNumber} <- {self.startRunNumber}"
                     )                
-            elif self.endRunNumber == self.startRunNumber or (
-                (int(self.endRunNumber) > 0 and int(self.startRunNumber) > 0)
-                and int(self.endRunNumber) < int(self.startRunNumber)
-            ):
-                raise ValueError(f"not a run-state transition: {self.endRunNumber} <- {self.startRunNumber}")
+            else:
+                is_same = self.endRunNumber == self.startRunNumber
+                is_decreasing = (
+                    int(self.endRunNumber) > 0 
+                    and int(self.startRunNumber) > 0 
+                    and int(self.endRunNumber) < int(self.startRunNumber)
+                )
+
+                if is_same or is_decreasing:
+                    raise ValueError(
+                        f"Not a valid run-state transition: "
+                        f"{self.endRunNumber} <- {self.startRunNumber}"
+                    )
             return self
 
     def __init__(self, message: str, transition: "Type", endRunNumber: str, startRunNumber: str):
@@ -64,7 +81,7 @@ class LiveDataState(Exception):
             message=message, transition=transition, endRunNumber=endRunNumber, startRunNumber=startRunNumber
         )
         super().__init__(message)
-
+        
     @property
     def message(self):
         return self.model.message
@@ -85,15 +102,6 @@ class LiveDataState(Exception):
     def parse_raw(raw) -> "LiveDataState":
         raw = LiveDataState.Model.model_validate_json(raw)
         return LiveDataState(**raw.dict())
-
-    @staticmethod
-    def unset() -> "LiveDataState":
-        return LiveDataState(
-            message="unset",
-            transition=LiveDataState.Type.UNSET,
-            endRunNumber=str(0),
-            startRunNumber=str(0)
-        )
 
     @staticmethod
     def running(runNumber: str | int) -> "LiveDataState":
