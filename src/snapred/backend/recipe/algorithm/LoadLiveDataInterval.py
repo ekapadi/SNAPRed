@@ -458,7 +458,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 runStatus = RunStatus.from_run(run)
                 if runStatus != RunStatus.RUNNING:
                     break
-                    
+
                 # Check for dead time:
                 
                 # Implementation note:
