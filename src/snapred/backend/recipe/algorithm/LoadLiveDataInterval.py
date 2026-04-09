@@ -399,7 +399,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 activeRunNumber = self.mantidSnapper.mtd[chunkWs].getRunNumber()
                 if str(activeRunNumber) == str(0):
                     raise RuntimeError(
-                        "`LoadLiveDataInterval`: cannot extract chunk from inactive run."
+                        "`LoadLiveDataInterval`: cannot extract initial chunk from inactive run."
                     )               
                 runStatus = LiveDataState.running(activeRunNumber)
                 
