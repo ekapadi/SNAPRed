@@ -20,6 +20,7 @@ from util.Config_helpers import Config_override
 
 from snapred.backend.dao.RunMetadata import RunMetadata
 from snapred.backend.data.util.PV_logs_util import datetimeFromLogTime
+from snapred.backend.error.RunStatus import RunStatus
 from snapred.backend.recipe.algorithm.LoadLiveDataInterval import LoadLiveDataInterval
 from snapred.meta.Config import Config
 
@@ -35,9 +36,15 @@ class TestLoadLiveDataInterval(unittest.TestCase):
         self.instrument = Config["instrument.name"]
         self.preserveEvents = True
 
+        # Default: treat all chunks as from a RUNNING run.
+        # Tests for RunStatus-based detection can override via self._from_run_patcher.side_effect.
+        self._from_run_patch = mock.patch.object(RunStatus, "from_run", return_value=RunStatus.RUNNING)
+        self._from_run_patcher = self._from_run_patch.start()
+
     def tearDown(self):
         if mtd.doesExist(self.outputWs):
             DeleteWorkspace(self.outputWs)
+        self._from_run_patch.stop()
 
     @classmethod
     def setUpClass(cls):
@@ -710,6 +717,9 @@ class TestLoadLiveDataInterval(unittest.TestCase):
             assert "A timeout occurred during data loading" in msg
 
     def test_exec_load_run_state_change(self):
+        # Force a run-state change during the chunk-assembly loop via RunStatus.from_run:
+        # * The initial chunk is RUNNING, one loop chunk is RUNNING, then the next is STOPPED.
+        # * This causes the loop to break, resulting in an incomplete load.
         mock_LoadLiveData = mock.Mock()
 
         self.instance.initialize()
@@ -740,15 +750,6 @@ class TestLoadLiveDataInterval(unittest.TestCase):
                 (datetime.datetime.fromisoformat(self.startTime) + timedelta(minutes=15)).isoformat()
             )
 
-            # Force a run-state change during the chunk-assembly loop:
-            # * Note that there's no separate log message for this case,
-            #   which is not an error.  When required, the state-change will be logged elsewhere.
-            # * In the case of the present test however, the assembled data-interval will be incomplete.
-            mock_chunkWs.getRunNumber.side_effect = ("12345", "12345", 0)
-
-            mock_chunkIntervals = [  # noqa: F841
-                (mock_chunkWs.getPulseTimeMin.return_value, mock_chunkWs.getPulseTimeMax.return_value)
-            ]
             mock_mtd = mock.MagicMock()
             mock_mtd.__getitem__.return_value = mock_chunkWs
             mock_mtd.doesExist.side_effect = lambda ws: ws == mock.sentinel.chunkWs
@@ -760,9 +761,18 @@ class TestLoadLiveDataInterval(unittest.TestCase):
             mock_loadIsComplete.return_value = False
             mock_sleep.side_effect = lambda _: None
 
+            # Simulate a run-state change on the 3rd call to RunStatus.from_run:
+            #   - Call 1 (initial chunk): RUNNING
+            #   - Call 2 (loop iter 1): RUNNING
+            #   - Call 3 (loop iter 2): STOPPED → break
+            self._from_run_patcher.side_effect = [RunStatus.RUNNING, RunStatus.RUNNING, RunStatus.STOPPED]
+
             self.instance.execute()
             msg = mock_logger.warning.mock_calls[0].args[0]
             assert "The complete data interval could not be loaded" in msg
+
+            # Three execute calls: 1 initial + 2 loop iterations.
+            assert mock_LoadLiveData.execute.call_count == 3
 
     def test_exec_filter_init(self):
         mock_LoadLiveData = mock.Mock()
@@ -1659,3 +1669,88 @@ class TestLoadLiveDataInterval(unittest.TestCase):
             # NO NEW EVENTS warnings should be logged.
             warning_msgs = " ".join(c.args[0] for c in mock_logger.warning.call_args_list)
             assert "NO NEW EVENTS" in warning_msgs
+
+    def test_exec_initial_chunk_inactive_run_raises(self):
+        # When the initial chunk has events but RunStatus.from_run returns non-RUNNING,
+        # a RuntimeError should be raised.
+        mock_LoadLiveData = mock.Mock()
+
+        self.instance.initialize()
+        self._setProperties(
+            self.instance,
+            OutputWorkspace=self.outputWs,
+            StartTime=self.startTime,
+            Instrument=Config["instrument.name"],
+            PreserveEvents=self.preserveEvents,
+        )
+
+        with (
+            mock.patch.object(inspect.getmodule(LoadLiveDataInterval), "ConfigService") as mock_ConfigService,
+            mock.patch.object(self.instance, "createChildAlgorithm") as mock_createChildAlgorithm,
+            mock.patch.object(self.instance, "mantidSnapper") as mock_snapper,
+            mock.patch.object(self.instance, "isLogging"),
+        ):
+            mock_ConfigService.getFacility.return_value.instrument.return_value = mock.sentinel.InstrumentInfo
+            mock_createChildAlgorithm.return_value = mock_LoadLiveData
+
+            mock_chunkWs = mock.Mock()
+            mock_chunkWs.getNumberEvents.return_value = 1  # has events → triggers from_run check
+            mock_mtd = mock.MagicMock()
+            mock_mtd.__getitem__.return_value = mock_chunkWs
+            mock_mtd.doesExist.side_effect = lambda ws: ws == mock.sentinel.chunkWs
+            mock_mtd.unique_hidden_name.return_value = mock.sentinel.chunkWs
+            mock_snapper.mtd = mock_mtd
+
+            # Simulate an inactive run.
+            self._from_run_patcher.return_value = RunStatus.STOPPED
+
+            with pytest.raises(RuntimeError, match="cannot extract initial chunk from inactive run"):
+                self.instance.PyExec()
+
+    def test_exec_loop_chunk_inactive_run_breaks(self):
+        # When a loop chunk's RunStatus.from_run returns non-RUNNING, the loop should break.
+        mock_LoadLiveData = mock.Mock()
+
+        self.instance.initialize()
+        self._setProperties(
+            self.instance,
+            OutputWorkspace=self.outputWs,
+            StartTime=self.startTime,
+            Instrument=Config["instrument.name"],
+            PreserveEvents=self.preserveEvents,
+        )
+
+        with (
+            mock.patch.object(inspect.getmodule(LoadLiveDataInterval), "ConfigService") as mock_ConfigService,
+            mock.patch.object(inspect.getmodule(LoadLiveDataInterval), "sleep") as mock_sleep,
+            mock.patch.object(self.instance, "createChildAlgorithm") as mock_createChildAlgorithm,
+            mock.patch.object(self.instance, "mantidSnapper") as mock_snapper,
+            mock.patch.object(self.instance, "isLogging"),
+            mock.patch.object(LoadLiveDataInterval, "_loadIsComplete") as mock_loadIsComplete,
+        ):
+            mock_ConfigService.getFacility.return_value.instrument.return_value = mock.sentinel.InstrumentInfo
+            mock_createChildAlgorithm.return_value = mock_LoadLiveData
+            mock_sleep.side_effect = lambda _: None
+
+            mock_chunkWs = mock.Mock()
+            mock_chunkWs.getNumberEvents.return_value = 1  # always has events
+            mock_chunkWs.getPulseTimeMin.return_value = DateAndTime(self.startTime)
+            mock_chunkWs.getPulseTimeMax.return_value = DateAndTime(
+                (datetime.datetime.fromisoformat(self.startTime) + timedelta(minutes=15)).isoformat()
+            )
+            mock_mtd = mock.MagicMock()
+            mock_mtd.__getitem__.return_value = mock_chunkWs
+            mock_mtd.doesExist.side_effect = lambda ws: ws == mock.sentinel.chunkWs
+            mock_mtd.unique_hidden_name.return_value = mock.sentinel.chunkWs
+            mock_snapper.mtd = mock_mtd
+
+            mock_loadIsComplete.return_value = False
+
+            # Initial chunk: RUNNING; first loop chunk: STOPPED → break.
+            self._from_run_patcher.side_effect = [RunStatus.RUNNING, RunStatus.STOPPED]
+
+            self.instance.execute()
+
+            # Only 2 execute calls: 1 initial + 1 loop (then break on STOPPED).
+            assert mock_LoadLiveData.execute.call_count == 2
+

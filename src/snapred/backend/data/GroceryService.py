@@ -891,9 +891,9 @@ class GroceryService:
                                     case RunStatus.PAUSED:
                                         raise LiveDataState.runStateTransition(runNumber, runNumber)
                                     case RunStatus.STOPPED:
-                                        raise liveDataState.runStateTransition("0", runNumber)
+                                        raise LiveDataState.runStateTransition("0", runNumber)
                                     case RunStatus.ERROR:
-                                        raise liveDataState.runError(runNumber)
+                                        raise LiveDataState.runError(runNumber)
                                     case _:
                                         raise RuntimeError(f"implementation error: unexpected 'RunStatus' value: '{runStatus}'")
                             raise RuntimeError(

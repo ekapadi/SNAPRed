@@ -45,7 +45,7 @@ class LiveDataState(Exception):
                 and int(self.endRunNumber) < int(self.startRunNumber)
             )
 
-            if (is_same and self.transition not in {LiveDataState.Type.RUN_PAUSE, LiveDataState.Type.RUN_ABORT})\
+            if (is_same and self.transition not in {LiveDataState.Type.RUN_PAUSE, LiveDataState.Type.RUN_ERROR})\
                 or is_decreasing:
                 raise ValueError(
                     f"Not a valid run-state transition: {self.transition}:"
@@ -80,25 +80,6 @@ class LiveDataState(Exception):
     def parse_raw(raw) -> "LiveDataState":
         raw = LiveDataState.Model.model_validate_json(raw)
         return LiveDataState(**raw.dict())
-
-    @staticmethod
-    def running(runNumber: str | int) -> "LiveDataState":
-        return LiveDataState(
-            message="running",
-            transition=LiveDataState.Type.RUNNING,
-            endRunNumber=str(runNumber),
-            startRunNumber=str(runNumber)
-        )
-
-    @staticmethod
-    def notRunning() -> "LiveDataState":
-        runNumber = 0
-        return LiveDataState(
-            message="not running",
-            transition=LiveDataState.Type.NOT_RUNNING,
-            endRunNumber=str(runNumber),
-            startRunNumber=str(runNumber)
-        )
 
     @staticmethod
     def runError(runNumber: str | int) -> "LiveDataState":

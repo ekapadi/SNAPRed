@@ -1,7 +1,7 @@
 from enum import StrEnum
+
 import mantid.api
-from enum import StrEnum
-import mantid.api
+
 
 class RunStatus(StrEnum):
     STOPPED = 'STOPPED'
