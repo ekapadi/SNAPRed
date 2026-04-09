@@ -866,6 +866,7 @@ class TestGroceryService(unittest.TestCase):
             "result": True,
             "loader": "LoadNexusProcessed",
             "workspace": self.fetchedWSname,
+            "runStatus": "",
         }
         assert_wksp_almost_equal(
             Workspace1=self.sampleWS,

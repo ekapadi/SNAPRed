@@ -878,7 +878,7 @@ class GroceryService:
             data = self.grocer.executeRecipe(workspace=workspaceName, loader=loader, loaderArgs=json.dumps(loaderArgs))
             data["fromLiveData"] = True
             if data["result"]:
-                if data["runStatus"]:
+                if data.get("runStatus"):
                     try:
                         liveDataState = LiveDataState.parse_raw(data["runStatus"])
                         if liveDataState.model.transition not in {LiveDataState.Type.UNSET, LiveDataState.Type.RUNNING}:
