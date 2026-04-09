@@ -9,13 +9,13 @@ import pytest
 from mantid.api import MatrixWorkspaceProperty, Run, mtd
 from mantid.kernel import DateAndTime
 from mantid.simpleapi import (
-    AddSampleLog,
     CloneWorkspace,
     CreateSampleWorkspace,
     DeleteWorkspace,
     DeleteWorkspaces,
     FilterByTime,
     Plus,
+    mtd
 )
 from util.Config_helpers import Config_override
 
@@ -80,9 +80,10 @@ class TestLoadLiveDataInterval(unittest.TestCase):
         # Set a non-zero run number on all workspaces so that
         # `LoadLiveDataInterval`'s inactive-run guard does not fire.
         _runNumber = "12345"
-        AddSampleLog(Workspace=cls.fullWs, LogName="run_number", LogText=_runNumber, LogType="Number Int")
+        
+        mtd[cls.fullWs].mutableRun()["run_number"] = _runNumber
         for ws in cls.chunkWss:
-            AddSampleLog(Workspace=ws, LogName="run_number", LogText=_runNumber, LogType="Number Int")
+            mtd[ws].mutableRun()["run_number"] = _runNumber
 
     @classmethod
     def tearDownClass(cls):
@@ -161,7 +162,7 @@ class TestLoadLiveDataInterval(unittest.TestCase):
         self.instance.initialize()
 
         assert set([p.name for p in self.instance.getProperties()]) == set(
-            ("OutputWorkspace", "StartTime", "EndTime", "Instrument", "PreserveEvents")
+            ("OutputWorkspace", "StartTime", "EndTime", "Instrument", "PreserveEvents", "RunStatus")
         )
 
         # verify default values
