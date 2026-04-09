@@ -400,6 +400,8 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 if str(activeRunNumber) == str(0):
                     raise RuntimeError(
                         "`LoadLiveDataInterval`: cannot extract initial chunk from inactive run."
+                        # *** DEBUG ***
+                        f"\n ====== keys: {[k for k in run.keys()]}"
                     )               
                 runStatus = LiveDataState.running(activeRunNumber)
                 
