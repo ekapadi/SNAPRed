@@ -23,7 +23,13 @@ class RunStatus(StrEnum):
                 if hasattr(prop, "value") and len(prop.value) > 0:
                     return prop.value[-1]
             return None
-
+        
+        # *** DEBUG ***
+        print("******>>\n")
+        for key in ("BL3:Exp:ScanAbort", "BL3:Exp:IM:ScanAbort", "end_time", "pause", "BL3:Exp:Det:Status"):
+            print(f"    {key}: {get_last_value(key)}")
+        print("\n<<******")
+        
         # 1. Check for an ERROR/ABORT state
         # Look at the scan abort PVs. If they evaluate to True/1, the run was aborted.
         abort_state = get_last_value("BL3:Exp:ScanAbort")
