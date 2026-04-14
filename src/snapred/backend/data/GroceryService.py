@@ -908,17 +908,32 @@ class GroceryService:
                         )
                 
                 run = self.mantidSnapper.mtd[workspaceName].getRun()
-                liveRunNumber = run.getProperty("run_number").value if run.hasProperty("run_number") else 0
+                # IMPORTANT: due to issues with the `SNSLiveEventData` listener implementation, we cannot assume
+                #   that the 'run_number' property has actually been set.
+                liveRunNumber = run.getProperty("run_number").value if run.hasProperty("run_number") else None
 
-                if int(runNumber) != int(liveRunNumber):
-                    # Live run number is unexpected => there has been a live-data run-state change.
+                if liveRunNumber is not None:
+                    if int(runNumber) != int(liveRunNumber):
+                        # Live run number is unexpected => there has been a live-data run-state change.
+                        self.deleteWorkspaceUnconditional(workspaceName)
+                        data = {"result": False}
+                        if liveDataArgs is not None:
+                            raise LiveDataState.runStateTransition(liveRunNumber, runNumber)
+                        raise RuntimeError(
+                            f"Neutron data for run '{runNumber}' is not present on disk, nor is it the live-data run"
+                        )
+                elif liveDataArgs is not None:
+                    # Temporary fix for `SNSLiveEventDataListener` not setting the run-number:
+                    #   just set it here.
+                    self.mantidSnapper.mtd[workspaceName].mutableRun().setPropertyValue("run_number") = str(liveRunNumber)
+                else:
+                    # Do NOT fix the run-number in the fallback case.
                     self.deleteWorkspaceUnconditional(workspaceName)
                     data = {"result": False}
-                    if liveDataArgs is not None:
-                        raise LiveDataState.runStateTransition(liveRunNumber, runNumber)
                     raise RuntimeError(
                         f"Neutron data for run '{runNumber}' is not present on disk, nor is it the live-data run"
                     )
+                
                 self._loadedRuns[self._key(runNumber, False)] = 0
                 self._liveDataKeys.append(self._key(runNumber, False))
         else:

@@ -21,14 +21,11 @@ class RunStatus(StrEnum):
             if run.hasProperty(log_name):
                 prop = run.getProperty(log_name)
                 if hasattr(prop, "value") and len(prop.value) > 0:
+                    # Extract either a single string, or the last point in a time-series.
+                    if isinstance(prop.value, str):
+                        return prop.value
                     return prop.value[-1]
             return None
-        
-        # *** DEBUG ***
-        print("******>>\n")
-        for key in ("BL3:Exp:ScanAbort", "BL3:Exp:IM:ScanAbort", "end_time", "pause", "BL3:Exp:Det:Status"):
-            print(f"    {key}: {get_last_value(key)}")
-        print("\n<<******")
         
         # 1. Check for an ERROR/ABORT state
         # Look at the scan abort PVs. If they evaluate to True/1, the run was aborted.
@@ -49,15 +46,18 @@ class RunStatus(StrEnum):
         if pause_state:  # Evaluates to True if 1 or True
             return cls.PAUSED
             
-        # 4. Check the explicit Detector Status PV (highly reliable for SNS)
-        det_status = get_last_value("BL3:Exp:Det:Status")
-        if det_status is not None:
-            det_status_str = str(det_status).strip().upper()
-            if "PAUSE" in det_status_str:
+        # 4. Check the explicit Run Status PV (which unfortunately, usually does not exist  :(  ):
+        status = get_last_value("BL3:CS:RunControl:StateEnum")
+        if status is not None:
+            status_str = str(status).strip().upper()
+            if "PAUSE" in status_str:
                 return cls.PAUSED
-            elif "STOP" in det_status_str or "IDLE" in det_status_str:
+            elif "STOP" in status_str\
+                or "IDLE" in status_str:
                 return cls.STOPPED
-            elif "ACQUIRING" in det_status_str or "RUN" in det_status_str:
+            elif "ACQUIRING" in status_str\
+                or "RECORD" in status_str\
+                or "RUN" in status_str:
                 return cls.RUNNING
 
         # 5. Fallback: If no aborts, no pauses, and no end_time, assume RUNNING
