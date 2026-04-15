@@ -10,7 +10,7 @@ from snapred.backend.error.RunStatus import RunStatus
 _PV_SCAN_ABORT = "BL3:Exp:ScanAbort"
 _PV_SCAN_ABORT_ALT = "BL3:Exp:IM:ScanAbort"
 _PV_PAUSE = "pause"
-_PV_DET_STATUS = "BL3:Exp:Det:Status"
+_PV_RUN_CONTROL = "BL3:CS:RunControl:StateEnum"
 
 
 def _make_run(
@@ -18,7 +18,7 @@ def _make_run(
     scan_abort_alt=None,
     has_end_time=False,
     pause=None,
-    det_status=None,
+    run_control=None,
 ):
     """Helper: build a mock mantid.api.Run with configurable SNS log properties.
 
@@ -28,7 +28,7 @@ def _make_run(
     scan_abort_alt : last value for 'BL3:Exp:IM:ScanAbort', or None if not present.
     has_end_time : whether the 'end_time' property is present.
     pause : last value for 'pause' log, or None if not present.
-    det_status : last string value for 'BL3:Exp:Det:Status', or None if not present.
+    run_control : last string value for 'BL3:CS:RunControl:StateEnum', or None if not present.
     """
     run = mock.Mock()
 
@@ -41,8 +41,8 @@ def _make_run(
         prop_values["end_time"] = ["2026-04-09T00:00:00"]
     if pause is not None:
         prop_values[_PV_PAUSE] = [pause]
-    if det_status is not None:
-        prop_values[_PV_DET_STATUS] = [det_status]
+    if run_control is not None:
+        prop_values[_PV_RUN_CONTROL] = [run_control]
 
     def _has_property(name):
         return name in prop_values
@@ -150,53 +150,59 @@ def test_from_run_not_paused_when_pause_log_false():
     assert RunStatus.from_run(run) == RunStatus.RUNNING
 
 
-def test_from_run_pause_takes_priority_over_det_status_running():
+def test_from_run_pause_takes_priority_over_run_control_running():
     """'pause'=True wins over a Det:Status of ACQUIRING."""
-    run = _make_run(pause=True, det_status="ACQUIRING")
+    run = _make_run(pause=True, run_control="ACQUIRING")
     assert RunStatus.from_run(run) == RunStatus.PAUSED
 
 
-# --- from_run: step 4 — detector status PV ---
+# --- from_run: step 4 — `BL3:CS:RunControl:StateEnum` PV ---
 
-def test_from_run_det_status_pause_returns_paused():
-    """Det:Status containing 'PAUSE' → PAUSED."""
-    run = _make_run(det_status="PAUSE")
+def test_from_run_run_control_pause_returns_paused():
+    """RunControl containing 'PAUSE' → PAUSED."""
+    run = _make_run(run_control="PAUSE")
     assert RunStatus.from_run(run) == RunStatus.PAUSED
 
 
-def test_from_run_det_status_paused_case_insensitive():
-    """Det:Status 'paused' (lowercase) → PAUSED."""
-    run = _make_run(det_status="paused")
+def test_from_run_run_control_paused_case_insensitive():
+    """RunControl 'paused' (lowercase) → PAUSED."""
+    run = _make_run(run_control="paused")
     assert RunStatus.from_run(run) == RunStatus.PAUSED
 
 
-def test_from_run_det_status_stop_returns_stopped():
-    """Det:Status containing 'STOP' → STOPPED."""
-    run = _make_run(det_status="STOP")
+def test_from_run_run_control_stop_returns_stopped():
+    """RunControl containing 'STOP' → STOPPED."""
+    run = _make_run(run_control="STOP")
     assert RunStatus.from_run(run) == RunStatus.STOPPED
 
 
-def test_from_run_det_status_idle_returns_stopped():
-    """Det:Status containing 'IDLE' → STOPPED."""
-    run = _make_run(det_status="IDLE")
+def test_from_run_run_control_idle_returns_stopped():
+    """RunControl containing 'IDLE' → STOPPED."""
+    run = _make_run(run_control="IDLE")
     assert RunStatus.from_run(run) == RunStatus.STOPPED
 
 
-def test_from_run_det_status_acquiring_returns_running():
-    """Det:Status containing 'ACQUIRING' → RUNNING."""
-    run = _make_run(det_status="ACQUIRING")
+def test_from_run_run_control_acquiring_returns_running():
+    """RunControl containing 'ACQUIRING' → RUNNING."""
+    run = _make_run(run_control="ACQUIRING")
     assert RunStatus.from_run(run) == RunStatus.RUNNING
 
 
-def test_from_run_det_status_run_returns_running():
-    """Det:Status containing 'RUN' → RUNNING."""
-    run = _make_run(det_status="RUN")
+def test_from_run_run_control_recording_returns_running():
+    """RunControl containing 'RECORD' → RUNNING."""
+    run = _make_run(run_control="RECORDING")
     assert RunStatus.from_run(run) == RunStatus.RUNNING
 
 
-def test_from_run_det_status_unknown_falls_through_to_running():
-    """Det:Status with an unrecognized value falls through to RUNNING fallback."""
-    run = _make_run(det_status="UNKNOWN_STATE")
+def test_from_run_run_control_run_returns_running():
+    """RunControl containing 'RUN' → RUNNING."""
+    run = _make_run(run_control="RUN")
+    assert RunStatus.from_run(run) == RunStatus.RUNNING
+
+
+def test_from_run_run_control_unknown_falls_through_to_running():
+    """RunControl with an unrecognized value falls through to RUNNING fallback."""
+    run = _make_run(run_control="UNKNOWN_STATE")
     assert RunStatus.from_run(run) == RunStatus.RUNNING
 
 
@@ -216,9 +222,9 @@ def test_from_run_abort_takes_priority_over_pause():
     assert RunStatus.from_run(run) == RunStatus.ERROR
 
 
-def test_from_run_abort_takes_priority_over_det_status_paused():
+def test_from_run_abort_takes_priority_over_run_control_paused():
     """ScanAbort=True beats Det:Status='PAUSE'; ERROR wins."""
-    run = _make_run(scan_abort=True, det_status="PAUSE")
+    run = _make_run(scan_abort=True, run_control="PAUSE")
     assert RunStatus.from_run(run) == RunStatus.ERROR
 
 
@@ -228,9 +234,9 @@ def test_from_run_end_time_takes_priority_over_pause_log():
     assert RunStatus.from_run(run) == RunStatus.STOPPED
 
 
-def test_from_run_end_time_takes_priority_over_det_status():
+def test_from_run_end_time_takes_priority_over_run_control():
     """end_time present beats any Det:Status value."""
-    run = _make_run(has_end_time=True, det_status="ACQUIRING")
+    run = _make_run(has_end_time=True, run_control="ACQUIRING")
     assert RunStatus.from_run(run) == RunStatus.STOPPED
 
 
