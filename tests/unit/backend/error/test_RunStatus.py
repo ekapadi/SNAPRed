@@ -252,3 +252,71 @@ def test_from_run_primary_scan_abort_takes_priority_over_alt():
     run = _make_run(scan_abort=False, scan_abort_alt=True)
     # Primary ScanAbort is False so abort condition is False; alt is not checked.
     assert RunStatus.from_run(run) == RunStatus.RUNNING
+
+
+# --- get_last_value: edge cases for property introspection ---
+
+
+def test_get_last_value_property_without_value_attribute_returns_none():
+    """get_last_value returns None when the property object exposes no 'value' attribute.
+
+    This covers the 'hasattr(prop, "value")' guard inside get_last_value.
+    """
+    # Build a run where the abort PVs are present but their property objects
+    # have no 'value' attribute; all other PVs are absent.
+    prop_without_value = mock.Mock(spec=[])  # spec=[] → no attributes, so hasattr(..., "value") is False
+
+    run = mock.Mock()
+    present = {_PV_SCAN_ABORT, _PV_SCAN_ABORT_ALT}
+    run.hasProperty.side_effect = lambda name: name in present
+    run.getProperty.side_effect = lambda name: prop_without_value if name in present else None
+
+    # Both abort PVs return None from get_last_value; no end_time/pause/run_control → RUNNING.
+    assert RunStatus.from_run(run) == RunStatus.RUNNING
+
+
+def test_get_last_value_empty_value_list_returns_none():
+    """get_last_value returns None when the property value list is empty.
+
+    This covers the 'len(prop.value) > 0' guard inside get_last_value.
+    """
+    # Build a run where abort/pause PVs are present but their value lists are empty.
+    run = mock.Mock()
+
+    def _has_property(name):
+        return name in (_PV_SCAN_ABORT, _PV_SCAN_ABORT_ALT, _PV_PAUSE)
+
+    def _get_property(name):
+        prop = mock.Mock()
+        prop.value = []  # empty list → len == 0 → get_last_value returns None
+        return prop
+
+    run.hasProperty.side_effect = _has_property
+    run.getProperty.side_effect = _get_property
+
+    # All get_last_value calls return None; no end_time/run_control → RUNNING fallback.
+    assert RunStatus.from_run(run) == RunStatus.RUNNING
+
+
+def test_get_last_value_string_prop_value_returns_string_directly():
+    """get_last_value returns the string directly when prop.value is a plain string.
+
+    This covers the 'isinstance(prop.value, str)' branch inside get_last_value.
+    Mantid may return a bare string for certain log types rather than a time-series array.
+    """
+    # Use 'BL3:CS:RunControl:StateEnum' as the test PV; all others absent.
+    run = mock.Mock()
+
+    def _has_property(name):
+        return name == _PV_RUN_CONTROL
+
+    def _get_property(name):
+        prop = mock.Mock()
+        prop.value = "ACQUIRING"  # bare string, not a list
+        return prop
+
+    run.hasProperty.side_effect = _has_property
+    run.getProperty.side_effect = _get_property
+
+    # get_last_value("BL3:CS:RunControl:StateEnum") returns "ACQUIRING" via the string branch.
+    assert RunStatus.from_run(run) == RunStatus.RUNNING

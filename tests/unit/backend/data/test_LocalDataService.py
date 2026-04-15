@@ -648,6 +648,93 @@ def test_hasLiveDataConnection_config_disabled(mockGetHostByAddr):
         mockGetHostByAddr.assert_not_called()
 
 
+## ====== Tests for: `LocalDataService.hasLiveDataConnection` (UDS paths) ======
+
+
+@mock.patch(ThisService + "ConfigService")
+def test_hasLiveDataConnection_uds_socket_file_exists(mockConfigService):
+    """UDS path: the configured address is a Unix domain socket that exists → True."""
+    with Config_override("liveData.enabled", True):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            socket_path = os.path.join(tmpdir, "test.sock")
+            # Create a real Unix domain socket file:
+            sock = socket.socket(socket.AF_UNIX)
+            sock.bind(socket_path)
+            try:
+                mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
+                    socket_path
+                )
+                instance = LocalDataService()
+                assert instance.hasLiveDataConnection()
+            finally:
+                sock.close()
+
+
+@mock.patch(ThisService + "ConfigService")
+def test_hasLiveDataConnection_uds_path_exists_but_not_socket(mockConfigService):
+    """UDS path: the configured address is a regular file, not a socket → False."""
+    with Config_override("liveData.enabled", True):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            regular_file = os.path.join(tmpdir, "not_a_socket.txt")
+            # Create a plain regular file:
+            with open(regular_file, "w") as f:
+                f.write("not a socket")
+            mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
+                regular_file
+            )
+            instance = LocalDataService()
+            assert not instance.hasLiveDataConnection()
+
+
+@mock.patch(ThisService + "ConfigService")
+def test_hasLiveDataConnection_uds_path_does_not_exist(mockConfigService):
+    """UDS path: the configured socket path does not exist at all → False."""
+    with Config_override("liveData.enabled", True):
+        mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
+            "/tmp/_snapred_nonexistent_socket_zyxwvuts.sock"
+        )
+        instance = LocalDataService()
+        assert not instance.hasLiveDataConnection()
+
+
+@mock.patch(ThisService + "ConfigService")
+def test_hasLiveDataConnection_uds_is_socket_raises_os_stat_fallback_true(mockConfigService):
+    """UDS path: is_socket() raises (simulating Python < 3.12) → os.stat fallback identifies a socket → True."""
+    with Config_override("liveData.enabled", True):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            socket_path = os.path.join(tmpdir, "test_fallback.sock")
+            # Create a real Unix domain socket file:
+            sock = socket.socket(socket.AF_UNIX)
+            sock.bind(socket_path)
+            try:
+                mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
+                    socket_path
+                )
+                # Simulate a Python version where is_socket() is unavailable:
+                with mock.patch("pathlib.Path.is_socket", side_effect=AttributeError(".is_socket() not available")):
+                    instance = LocalDataService()
+                    assert instance.hasLiveDataConnection()
+            finally:
+                sock.close()
+
+
+@mock.patch(ThisService + "ConfigService")
+def test_hasLiveDataConnection_uds_is_socket_raises_os_stat_also_raises(mockConfigService):
+    """UDS path: is_socket() raises AND os.stat also raises → returns False."""
+    with Config_override("liveData.enabled", True):
+        mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
+            "/tmp/_snapred_nonexistent_socket_zyxwvuts.sock"
+        )
+        # Patch Path.exists to raise (so the outer try-block raises, triggering the except branch),
+        # then also make os.stat raise (so the inner fallback try-block also fails).
+        with (
+            mock.patch("pathlib.Path.exists", side_effect=RuntimeError("exists() unexpectedly failed")),
+            mock.patch("os.stat", side_effect=OSError("os.stat failed")),
+        ):
+            instance = LocalDataService()
+            assert not instance.hasLiveDataConnection()
+
+
 ## ====== Tests for: `LocalDataService._parseSocketAddress:     ======
 #  (See also: "<mantid codebase>/LiveData/test/Python/test_adara_player_util.py" `Test_SocketAddress`.)
 
