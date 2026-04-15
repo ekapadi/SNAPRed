@@ -1,7 +1,10 @@
+from pydantic import ValidationError
+
+from snapred.backend.error.LiveDataState import LiveDataState
+
 # Test-related imports go last:
 import pytest
 
-from snapred.backend.error.LiveDataState import LiveDataState
 
 
 def test_LiveDataState():
@@ -22,7 +25,7 @@ def test_LiveDataState_type_enum_members():
 
 def test_LiveDataState_model_requires_all_fields():
     # Model raises when required fields are missing.
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError, match="Field required"):
         LiveDataState.Model()
 
 

@@ -80,7 +80,7 @@ def test_RunStatus_from_string():
 
 
 def test_RunStatus_invalid_string_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="is not a valid RunStatus"):
         RunStatus("UNKNOWN_STATUS")
 
 
