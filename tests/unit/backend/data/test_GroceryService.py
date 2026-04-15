@@ -4179,7 +4179,7 @@ class TestGroceryService(unittest.TestCase):
                 "loader": "LoadLiveDataInterval",
                 "workspace": workspaceName,
             }
-            mockWs = mock.Mock()
+            mockWs = mock.MagicMock()
             mockWs.getRun.return_value = self._mockRunWithoutRunNumber()
             mockSnapper.mtd.__getitem__.return_value = mockWs
 
