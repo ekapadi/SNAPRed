@@ -286,7 +286,7 @@ def test_get_last_value_empty_value_list_returns_none():
     def _has_property(name):
         return name in (_PV_SCAN_ABORT, _PV_SCAN_ABORT_ALT, _PV_PAUSE)
 
-    def _get_property(name):
+    def _get_property(_name):
         prop = mock.Mock()
         prop.value = []  # empty list → len == 0 → get_last_value returns None
         return prop
@@ -310,7 +310,7 @@ def test_get_last_value_string_prop_value_returns_string_directly():
     def _has_property(name):
         return name == _PV_RUN_CONTROL
 
-    def _get_property(name):
+    def _get_property(_name):
         prop = mock.Mock()
         prop.value = "ACQUIRING"  # bare string, not a list
         return prop
