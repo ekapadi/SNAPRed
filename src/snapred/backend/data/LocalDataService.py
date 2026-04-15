@@ -12,7 +12,6 @@ from errno import ENOENT as NOT_FOUND
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-from urllib.parse import urlparse
 
 import h5py
 import numpy as np
@@ -1510,11 +1509,12 @@ class LocalDataService:
                 # For UDS, check that the file exists and is a socket
                 try:
                     status = address.exists() and address.is_socket()
-                except Exception as e:  # .is_socket() only in Python 3.12+; otherwise use stat.S_ISSOCK
+                except Exception: # noqa: BLE001  
+                    # .is_socket() only in Python 3.12+; otherwise use stat.S_ISSOCK
                     try:
                         st_mode = os.stat(address).st_mode
                         status = stat.S_ISSOCK(st_mode)
-                    except Exception as e2:
+                    except Exception as e2: # noqa: BLE001
                         logger.debug(f"`hasLiveDataConnection` (UDS) returned `False`: exception: {e2}")
             elif isinstance(address, tuple):
                 host, port = address
@@ -1522,7 +1522,7 @@ class LocalDataService:
                     # DNS check: host is reachable from the local network
                     socket.gethostbyaddr(host)
                     status = True
-                except Exception as e:
+                except Exception as e: # noqa: BLE001
                     logger.debug(f"`hasLiveDataConnection` (INET) returns `False`: exception: {e}")
 
         return status

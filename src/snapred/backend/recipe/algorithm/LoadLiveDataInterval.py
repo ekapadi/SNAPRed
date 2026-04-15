@@ -364,7 +364,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
     # --------- end: `LoadLiveDataInterval` call break out to static methods. ------------------------------------------
 
     def PyExec(self):
-        runStatus: LiveDataState | None = None
+        runStatus: RunStatus | None = None
         chunkWs = self.mantidSnapper.mtd.unique_hidden_name()
         self.chunkIntervals = []
         try:

@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 
 from snapred.backend.log.logger import snapredLogger
 

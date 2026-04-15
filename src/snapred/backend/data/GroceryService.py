@@ -897,7 +897,8 @@ class GroceryService:
                                     case _:
                                         raise RuntimeError(f"implementation error: unexpected 'RunStatus' value: '{runStatus}'")
                             raise RuntimeError(
-                                f"Neutron data for run '{runNumber}' is not present on disk, and there is a problem with the live-data run:\n"
+                                f"Neutron data for run '{runNumber}' is not present on disk, "
+                                "and there is a problem with the live-data run:\n"
                                 f"    live-run status: {runStatus}."
                             )                            
                     except ValueError as e:
