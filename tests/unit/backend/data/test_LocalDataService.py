@@ -711,7 +711,7 @@ def test_hasLiveDataConnection_uds_is_socket_raises_os_stat_fallback_true(mockCo
                     socket_path
                 )
                 # Simulate a Python version where is_socket() is unavailable:
-                with mock.patch("pathlib.Path.is_socket", side_effect=AttributeError(".is_socket() not available")):
+                with mock.patch("pathlib.Path.is_socket", side_effect=AttributeError("is_socket() not available")):
                     instance = LocalDataService()
                     assert instance.hasLiveDataConnection()
             finally:
