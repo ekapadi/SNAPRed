@@ -4186,8 +4186,8 @@ class TestGroceryService(unittest.TestCase):
             data = self.instance._fetchLiveData(item)
 
             assert data["result"] is True
-            # The workspace run-number should have been patched via mutableRun():
-            mockWs.mutableRun.return_value.__setitem__.assert_called_once_with("run_number", str(None))
+            # The workspace run-number should have been patched with the item's run number:
+            mockWs.mutableRun.return_value.__setitem__.assert_called_once_with("run_number", runNumber)
 
     def test_fetchLiveData_live_run_number_none_without_live_data_args_raises_runtime_error(self):
         """When run_number is absent in the live workspace and liveDataArgs is None (fallback mode),

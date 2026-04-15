@@ -725,7 +725,7 @@ def test_hasLiveDataConnection_uds_is_socket_raises_os_stat_also_raises(mockConf
         mockConfigService.getFacility.return_value.instrument.return_value.liveDataAddress.return_value = (
             "/tmp/_snapred_nonexistent_socket_zyxwvuts.sock"
         )
-        # Patch Path.exists to raise (so the outer try-block raises, triggering the except branch),
+        # Patch pathlib.Path.exists to raise (so the outer try-block raises, triggering the except branch),
         # then also make os.stat raise (so the inner fallback try-block also fails).
         with (
             mock.patch("pathlib.Path.exists", side_effect=RuntimeError("exists() unexpectedly failed")),

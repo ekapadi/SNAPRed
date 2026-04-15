@@ -928,7 +928,7 @@ class GroceryService:
                 elif liveDataArgs is not None:
                     # Temporary fix for `SNSLiveEventDataListener` not setting the run-number:
                     #   just set it here.
-                    self.mantidSnapper.mtd[workspaceName].mutableRun()["run_number"] = str(liveRunNumber)
+                    self.mantidSnapper.mtd[workspaceName].mutableRun()["run_number"] = str(runNumber)
                 else:
                     # Do NOT fix the run-number in the fallback case.
                     self.deleteWorkspaceUnconditional(workspaceName)
