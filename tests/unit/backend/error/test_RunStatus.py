@@ -5,7 +5,6 @@ import pytest
 
 from snapred.backend.error.RunStatus import RunStatus
 
-
 # ---- SNS-specific PV names used by RunStatus.from_run ----
 _PV_SCAN_ABORT = "BL3:Exp:ScanAbort"
 _PV_SCAN_ABORT_ALT = "BL3:Exp:IM:ScanAbort"
@@ -59,6 +58,7 @@ def _make_run(
 
 # --- StrEnum basics ---
 
+
 def test_RunStatus_enum_members():
     expected = {"STOPPED", "PAUSED", "RUNNING", "ERROR"}
     actual = {s.name for s in RunStatus}
@@ -85,6 +85,7 @@ def test_RunStatus_invalid_string_raises():
 
 
 # --- from_run: step 1 — abort/error detection ---
+
 
 def test_from_run_error_when_scan_abort_pv_true():
     """BL3:Exp:ScanAbort=True → ERROR."""
@@ -118,6 +119,7 @@ def test_from_run_error_takes_priority_over_end_time():
 
 # --- from_run: step 2 — stopped detection via end_time ---
 
+
 def test_from_run_stopped_when_end_time_present():
     """'end_time' present and no abort → STOPPED."""
     run = _make_run(has_end_time=True)
@@ -131,6 +133,7 @@ def test_from_run_end_time_does_not_override_abort():
 
 
 # --- from_run: step 3 — paused detection via 'pause' log ---
+
 
 def test_from_run_paused_when_pause_log_true():
     """'pause' log last value = True → PAUSED."""
@@ -157,6 +160,7 @@ def test_from_run_pause_takes_priority_over_run_control_running():
 
 
 # --- from_run: step 4 — `BL3:CS:RunControl:StateEnum` PV ---
+
 
 def test_from_run_run_control_pause_returns_paused():
     """RunControl containing 'PAUSE' → PAUSED."""
@@ -208,6 +212,7 @@ def test_from_run_run_control_unknown_falls_through_to_running():
 
 # --- from_run: step 5 — fallback ---
 
+
 def test_from_run_fallback_running_when_no_relevant_logs():
     """No abort PVs, no end_time, no pause log, no Det:Status → fallback RUNNING."""
     run = _make_run()
@@ -215,6 +220,7 @@ def test_from_run_fallback_running_when_no_relevant_logs():
 
 
 # --- priority ordering ---
+
 
 def test_from_run_abort_takes_priority_over_pause():
     """ScanAbort=True beats pause=True; ERROR wins."""

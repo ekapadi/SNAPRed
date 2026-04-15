@@ -895,19 +895,21 @@ class GroceryService:
                                     case RunStatus.ERROR:
                                         raise LiveDataState.runError(runNumber)
                                     case _:
-                                        raise RuntimeError(f"implementation error: unexpected 'RunStatus' value: '{runStatus}'")
+                                        raise RuntimeError(
+                                            f"implementation error: unexpected 'RunStatus' value: '{runStatus}'"
+                                        )
                             raise RuntimeError(
                                 f"Neutron data for run '{runNumber}' is not present on disk, "
                                 "and there is a problem with the live-data run:\n"
                                 f"    live-run status: {runStatus}."
-                            )                            
+                            )
                     except ValueError as e:
                         logger.debug(
                             f"Error when parsing 'RunStatus' returned by `FetchGroceriesAlgorithm`:\n"
                             f"    {data['runStatus']}:\n"
                             f"    {e}."
                         )
-                
+
                 run = self.mantidSnapper.mtd[workspaceName].getRun()
                 # IMPORTANT: due to issues with the `SNSLiveEventData` listener implementation, we cannot assume
                 #   that the 'run_number' property has actually been set.
@@ -934,7 +936,7 @@ class GroceryService:
                     raise RuntimeError(
                         f"Neutron data for run '{runNumber}' is not present on disk, nor is it the live-data run"
                     )
-                
+
                 self._loadedRuns[self._key(runNumber, False)] = 0
                 self._liveDataKeys.append(self._key(runNumber, False))
         else:

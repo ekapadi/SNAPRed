@@ -3999,9 +3999,7 @@ class TestGroceryService(unittest.TestCase):
                 "workspace": workspaceName,
                 "runStatus": RunStatus.RUNNING,
             }
-            mockSnapper.mtd.__getitem__.return_value = mock.Mock(
-                getRun=mock.Mock(return_value=self.mockRun(runNumber))
-            )
+            mockSnapper.mtd.__getitem__.return_value = mock.Mock(getRun=mock.Mock(return_value=self.mockRun(runNumber)))
 
             data = self.instance._fetchLiveData(item)
             assert data["result"] is True
@@ -4141,9 +4139,7 @@ class TestGroceryService(unittest.TestCase):
                 "workspace": workspaceName,
                 "runStatus": "NOT_A_VALID_RUN_STATUS_VALUE",
             }
-            mockSnapper.mtd.__getitem__.return_value = mock.Mock(
-                getRun=mock.Mock(return_value=self.mockRun(runNumber))
-            )
+            mockSnapper.mtd.__getitem__.return_value = mock.Mock(getRun=mock.Mock(return_value=self.mockRun(runNumber)))
 
             data = self.instance._fetchLiveData(item)
             assert data["result"] is True

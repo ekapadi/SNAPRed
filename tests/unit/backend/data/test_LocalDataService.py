@@ -716,7 +716,7 @@ def test_parse_ipv4():
 
     # Low port number
     result = LocalDataService._parseSocketAddress("172.16.0.1:1")
-    assert result ==("172.16.0.1", 1)
+    assert result == ("172.16.0.1", 1)
 
 
 def test_parse_ipv6():

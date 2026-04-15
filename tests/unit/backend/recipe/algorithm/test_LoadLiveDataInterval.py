@@ -1211,18 +1211,13 @@ class TestLoadLiveDataInterval(unittest.TestCase):
 
     def _make_tsp_mock(self, name, start_iso, end_iso, size=1):
         """Helper: create a mock TimeSeriesProperty-like object."""
-        from unittest.mock import MagicMock
         from mantid.kernel import FloatTimeSeriesProperty
 
         prop = mock.MagicMock(spec=FloatTimeSeriesProperty)
         prop.name = name
         prop.size.return_value = size
-        prop.firstTime.return_value.to_datetime64.return_value = (
-            np.datetime64(start_iso, "ns") if start_iso else None
-        )
-        prop.lastTime.return_value.to_datetime64.return_value = (
-            np.datetime64(end_iso, "ns") if end_iso else None
-        )
+        prop.firstTime.return_value.to_datetime64.return_value = np.datetime64(start_iso, "ns") if start_iso else None
+        prop.lastTime.return_value.to_datetime64.return_value = np.datetime64(end_iso, "ns") if end_iso else None
         return prop
 
     def test__fallbackChunkInterval_no_properties(self):
@@ -1272,9 +1267,7 @@ class TestLoadLiveDataInterval(unittest.TestCase):
         ws = mock.Mock()
         ws.getRun.return_value.getProperties.return_value = [prop]
         requiredStart = np.datetime64("2010-01-01T00:00:00", "ns")
-        existing = [
-            (np.datetime64("2010-01-01T00:30:00", "ns"), np.datetime64("2010-01-01T01:30:00", "ns"))
-        ]
+        existing = [(np.datetime64("2010-01-01T00:30:00", "ns"), np.datetime64("2010-01-01T01:30:00", "ns"))]
         result = LoadLiveDataInterval._fallbackChunkInterval(ws, requiredStart, existing)
         assert result is None
 
@@ -1753,4 +1746,3 @@ class TestLoadLiveDataInterval(unittest.TestCase):
 
             # Only 2 execute calls: 1 initial + 1 loop (then break on STOPPED).
             assert mock_LoadLiveData.execute.call_count == 2
-

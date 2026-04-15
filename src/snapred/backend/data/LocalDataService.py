@@ -1500,8 +1500,8 @@ class LocalDataService:
         if Config["liveData.enabled"]:
             # `liveDataAddress()` returns a string similar to "bl3-daq1.sns.gov:31415",
             #   but during testing, it might also return a Unix domain socket (UDS) path string.
-            
-            facility, instrument  = Config["liveData.facility.name"], Config["liveData.instrument.name"]
+
+            facility, instrument = Config["liveData.facility.name"], Config["liveData.instrument.name"]
             address_str = ConfigService.getFacility(facility).instrument(instrument).liveDataAddress()
             address = self._parseSocketAddress(address_str)
 
@@ -1509,12 +1509,12 @@ class LocalDataService:
                 # For UDS, check that the file exists and is a socket
                 try:
                     status = address.exists() and address.is_socket()
-                except Exception: # noqa: BLE001  
+                except Exception:  # noqa: BLE001
                     # .is_socket() only in Python 3.12+; otherwise use stat.S_ISSOCK
                     try:
                         st_mode = os.stat(address).st_mode
                         status = stat.S_ISSOCK(st_mode)
-                    except Exception as e2: # noqa: BLE001
+                    except Exception as e2:  # noqa: BLE001
                         logger.debug(f"`hasLiveDataConnection` (UDS) returned `False`: exception: {e2}")
             elif isinstance(address, tuple):
                 host, port = address
@@ -1522,7 +1522,7 @@ class LocalDataService:
                     # DNS check: host is reachable from the local network
                     socket.gethostbyaddr(host)
                     status = True
-                except Exception as e: # noqa: BLE001
+                except Exception as e:  # noqa: BLE001
                     logger.debug(f"`hasLiveDataConnection` (INET) returns `False`: exception: {e}")
 
         return status

@@ -97,12 +97,12 @@ class LoadLiveDataInterval(PythonAlgorithm):
         self.declareProperty("PreserveEvents", defaultValue=True, direction=Direction.Input)
 
         # `RunStatus` returns either 'RUNNING', or the string representation of the `RunStatus`
-        #    of the last non-running chunk. 
+        #    of the last non-running chunk.
         self.declareProperty(
             "RunStatus",
-            defaultValue="RUNNING", 
+            defaultValue="RUNNING",
             direction=Direction.Output,
-            doc=f"Status of the live data run: {{{', '.join(s.name for s in RunStatus)}}}"
+            doc=f"Status of the live data run: {{{', '.join(s.name for s in RunStatus)}}}",
         )
 
         self.mantidSnapper = MantidSnapper(self, __name__)
@@ -352,12 +352,8 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 best_interval = (start_dt, end_dt)
 
         if valid_candidates:
-            lines = "\n".join(
-                f"  '{name}': ({start}, {end})" for name, start, end in valid_candidates
-            )
-            logger.warning(
-                f"Fallback chunk-interval candidates from TimeSeriesProperty logs:\n{lines}"
-            )
+            lines = "\n".join(f"  '{name}': ({start}, {end})" for name, start, end in valid_candidates)
+            logger.warning(f"Fallback chunk-interval candidates from TimeSeriesProperty logs:\n{lines}")
 
         return best_interval
 
@@ -399,12 +395,10 @@ class LoadLiveDataInterval(PythonAlgorithm):
                 run = self.mantidSnapper.mtd[chunkWs].getRun()
                 runStatus = RunStatus.from_run(run)
                 if runStatus != RunStatus.RUNNING:
-                    raise RuntimeError(
-                        "`LoadLiveDataInterval`: cannot extract initial chunk from inactive run."
-                    )               
-                
+                    raise RuntimeError("`LoadLiveDataInterval`: cannot extract initial chunk from inactive run.")
+
                 logger.info(f"Run interval: ({run.startTime().to_datetime64()}, {run.endTime().to_datetime64()})")
-                
+
                 logger.info(
                     f"Loaded-chunk interval: ({self.mantidSnapper.mtd[chunkWs].getPulseTimeMin().to_datetime64()}, "
                     f"{self.mantidSnapper.mtd[chunkWs].getPulseTimeMax().to_datetime64()})"
@@ -422,15 +416,11 @@ class LoadLiveDataInterval(PythonAlgorithm):
                     self.mantidSnapper.mtd[chunkWs], requiredStartTime, self.chunkIntervals
                 )
                 if fallback is not None:
-                    logger.warning(
-                        f"NO EVENTS in initially-loaded chunk: using fallback interval {fallback}."
-                    )
+                    logger.warning(f"NO EVENTS in initially-loaded chunk: using fallback interval {fallback}.")
                     self.chunkIntervals.append(fallback)
                 else:
                     if not allowDeadTime:
-                        logger.error(
-                            "Initial chunk contained no events and no suitable fallback interval was found."
-                        )
+                        logger.error("Initial chunk contained no events and no suitable fallback interval was found.")
                         raise RuntimeError(
                             "Initial chunk contained no events and no suitable fallback interval was found."
                         )
@@ -446,7 +436,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
             waitTime = 0
             dataLoadTimeout = Config["liveData.dataLoadTimeout"]
             waitTimeIncrement = Config["liveData.chunkLoadWait"]
-            maxDeadTime = Config["liveData.time_comparison_threshold"] # this is also the maximum data-gap duration
+            maxDeadTime = Config["liveData.time_comparison_threshold"]  # this is also the maximum data-gap duration
             while (waitTime < dataLoadTimeout) and not self._loadIsComplete(outputWs, startTime, self.chunkIntervals):
                 sleep(waitTimeIncrement)
                 waitTime += waitTimeIncrement
@@ -460,7 +450,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
                     break
 
                 # Check for dead time:
-                
+
                 # Implementation note:
                 #   - when there are no events, `getPulseTimeMin()` and `getPulseTimeMax()` return
                 #     `DateAndTime::maximum()` and `DateAndTime::minimum()` respectively.
@@ -470,9 +460,7 @@ class LoadLiveDataInterval(PythonAlgorithm):
                         self.mantidSnapper.mtd[chunkWs], requiredStartTime, self.chunkIntervals
                     )
                     if fallback is not None:
-                        logger.warning(
-                            f"NO NEW EVENTS in {waitTimeIncrement} s: using fallback interval {fallback}."
-                        )
+                        logger.warning(f"NO NEW EVENTS in {waitTimeIncrement} s: using fallback interval {fallback}.")
                         self.chunkIntervals.append(fallback)
                         deadTimeDuration = 0
                     else:

@@ -1,10 +1,8 @@
+# Test-related imports go last:
+import pytest
 from pydantic import ValidationError
 
 from snapred.backend.error.LiveDataState import LiveDataState
-
-# Test-related imports go last:
-import pytest
-
 
 
 def test_LiveDataState():
@@ -130,4 +128,3 @@ def test_LiveDataState_parse_raw():
     assert parsed.endRunNumber == original.endRunNumber
     assert parsed.startRunNumber == original.startRunNumber
     assert parsed.message == original.message
-
