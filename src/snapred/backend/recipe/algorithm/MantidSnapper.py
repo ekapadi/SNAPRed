@@ -54,6 +54,7 @@ class MantidSnapper:
     ##
     ## KNOWN NON-REENTRANT ALGORITHMS
     ##
+    _nonReentrantAlgorithms = "LoadLiveData", "LoadLiveDataInterval"
     _liveDataLock = Lock()
     _nonReentrantMutexes = {"LoadLiveData": _liveDataLock, "LoadLiveDataInterval": _liveDataLock}
 
@@ -248,11 +249,17 @@ class MantidSnapper:
             if mutex is not None:
                 mutex.release()
 
+
     @classmethod
     def _cleanupNonConcurrent(cls, name, algorithm):
-        if name in cls._nonConcurrentAlgorithms:
+        if name in cls._nonConcurrentAlgorithms or name in cls._nonReentrantAlgorithms:
+            # *** DEBUG ***
+            print(f"****** WAITING FOR: {name} ******")
             cls._waitForAlgorithmCompletion(name)
+            print(f"****** REMOVING: {name} ******")
             cls._removeAlgorithm(algorithm)
+            print(f"****** REMOVED: {name} ******")
+            print(f"--- ADS: {mtd.getObjectNames()} ---")
 
     def executeQueue(self):
         if self.parentAlgorithm:
