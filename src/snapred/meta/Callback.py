@@ -37,26 +37,38 @@ def callback(clazz):
             pass
 
         def update(self, value):
+            pass
+            """
             self._set = True
             self._value = value
-
+            """
+            
         def get(self):
+            return None
+            """
             if not self._set:
                 raise AttributeError("Callback not Populated")
             return self._value
-
+            """
+            
         def __getattr__(self, name):
+            return None
+            """
             if name in self._ignore:
                 return __getattr__(name)  # noqa: F821
             if not self._set:
                 raise AttributeError("Callback not Populated")
             return getattr(self._value, name)
-
+            """
+            
         def __getitem__(self, items):
+            return None
+            """
             if not self._set:
                 return self
             return self._value.__getitem__(items)
-
+            """
+            
         def __subclasscheck__(cls, subclass):
             return clazz.__subclasscheck__(subclass)
 
