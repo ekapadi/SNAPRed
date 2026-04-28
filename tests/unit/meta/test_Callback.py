@@ -50,3 +50,45 @@ class TestCallback(unittest.TestCase):
         assert testCallback.__float__() == 123.456
         assert testCallback == 123.456
         assert testCallback + 1 == 124.456
+
+    def test_getattr_nameInIgnore(self):
+        # When `__getattr__` is invoked with a name that is in `self._ignore`,
+        # the implementation calls the (undefined) module-level `__getattr__`,
+        # which raises a `NameError`.
+        testCallback = callback(str)
+        with pytest.raises(NameError):
+            testCallback.__getattr__("_ignore")
+
+    def test_setattr_notPopulated(self):
+        # Setting an attribute when the callback is not populated should
+        # succeed (the class does not override `__setattr__`) and must not
+        # mark the callback as populated.
+        testCallback = callback(str)
+        assert testCallback._set is False
+        testCallback.someNewAttribute = "hello"
+        assert testCallback.someNewAttribute == "hello"
+        # Setting an arbitrary attribute must not flip the populated flag.
+        assert testCallback._set is False
+        # `get` should still raise because the callback was never updated.
+        with pytest.raises(AttributeError):
+            testCallback.get()
+
+    def test_repr_notPopulated(self):
+        testCallback = callback(str)
+        with pytest.raises(AttributeError):
+            repr(testCallback)
+
+    def test_repr_populated(self):
+        testCallback = callback(str)
+        testCallback.update("test")
+        assert repr(testCallback) == repr("test")
+
+    def test_str_notPopulated(self):
+        testCallback = callback(str)
+        with pytest.raises(AttributeError):
+            str(testCallback)
+
+    def test_str_populated(self):
+        testCallback = callback(str)
+        testCallback.update("test")
+        assert str(testCallback) == "test"
