@@ -30,8 +30,8 @@ class CallbackMeta(type):
         '__len__', '__getitem__', '__setitem__', '__delitem__', '__iter__', '__next__',
         '__contains__', '__reversed__', '__missing__',
         
-        # Conversion operations
-        '__int__', '__float__', '__str__', '__repr__', '__bool__', '__hash__', '__index__',
+        # Conversion operations (note: `__str__` and `__repr__` must NOT be forwarded here)
+        '__int__', '__float__', '__bool__', '__hash__', '__index__',
         '__complex__', '__bytes__', '__format__',
         
         # Context managers
