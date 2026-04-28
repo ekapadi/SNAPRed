@@ -11,7 +11,7 @@ from snapred.backend.error.AlgorithmException import AlgorithmException
 from snapred.backend.log.logger import snapredLogger
 
 # must import to register with AlgorithmManager
-from snapred.meta.Callback import callback
+from snapred.meta.Callback import Callback, callback
 from snapred.meta.Config import Config, Resource
 from snapred.meta.pointer import access_pointer, create_pointer
 
@@ -20,14 +20,14 @@ logger = snapredLogger.getLogger(__name__)
 
 class _CustomMtd:
     def __getitem__(self, key):
-        if str(key.__class__) == str(callback(int).__class__):
+        if isinstance(key, Callback):
             key = key.get()
         if self.doesExist(key):
             return mtd[key]
         raise KeyError(f"Workspace {key} not found in mtd: {self.getObjectNames()}")
 
     def doesExist(self, key):
-        if str(key.__class__) == str(callback(int).__class__):
+        if isinstance(key, Callback):
             key = key.get()
         return key is not None and mtd.doesExist(key)
 
