@@ -95,7 +95,7 @@ def _liveMetadataFromRun(run: Run) -> RunMetadata:
     metadata = None
     runNumber = run.getProperty("run_number").value if run.hasProperty("run_number") else None
     try:
-        # *** DEBUG ***
+        # WORK-AROUND for this script specifically:
         stateIdSchema = DetectorState.LEGACY_SCHEMA
         """
         stateIdSchema = (

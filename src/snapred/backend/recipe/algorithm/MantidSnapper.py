@@ -255,13 +255,8 @@ class MantidSnapper:
     @classmethod
     def _cleanupNonConcurrent(cls, name, algorithm):
         if name in cls._nonConcurrentAlgorithms or name in cls._nonReentrantAlgorithms:
-            # *** DEBUG ***
-            print(f"****** WAITING FOR: {name} ******")
             cls._waitForAlgorithmCompletion(name)
-            print(f"****** REMOVING: {name} ******")
             cls._removeAlgorithm(algorithm)
-            print(f"****** REMOVED: {name} ******")
-            print(f"--- ADS: {mtd.getObjectNames()} ---")
 
     def executeQueue(self):
         if self.parentAlgorithm:
