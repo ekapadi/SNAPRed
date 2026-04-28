@@ -209,11 +209,13 @@ class MantidSnapper:
                 mutex.acquire()
 
             for prop, val in kwargs.items():
-                # this line is to appease mantid properties, idk where its pulling empty string from
-                if str(val.__class__) == str(callback(int).__class__):
+                # Unwrap any deferred-output Callback so that boost::python sees
+                # the underlying str / workspace name / value, not the wrapper.
+                if isinstance(val, Callback):
                     val = val.get()
                 if val is None:
                     continue
+
                 # for pointer property, set via its pointer
                 # allows for "pass-by-reference"-like behavior
                 # this is safe even if the memory address is directly passed
