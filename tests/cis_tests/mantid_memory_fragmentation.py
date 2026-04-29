@@ -26,6 +26,10 @@ Memory footprint
   ``TofEvent`` objects (16 bytes each), which is then converted to a ``Workspace2D``
   via ``ConvertToMatrixWorkspace`` (matching the ``PreserveEvents=False`` branch of
   ``LoadLiveData::exec`` in ``Framework/LiveData/src/LoadLiveData.cpp`` ~L488-535).
+  ``events_per_pixel`` is rounded down to the nearest power of two so that each
+  ``EventList``'s underlying ``std::vector<TofEvent>`` capacity equals its size --
+  otherwise vector growth (powers of two) would inflate resident memory by up to
+  ~2x across all ~1.18 M spectra.
 * The event workspace is created with a single-bin X-axis (``BinWidth == XMax``)
   so the resulting histogram is small (~28 MB) -- this matches the typical
   live-data chunk shape.  Multi-bin event workspaces (e.g. ``BinWidth=1.0`` over
@@ -147,11 +151,20 @@ with IPTS_override():
     logger.debug(f"SNAP num histograms: {num_hist}")
     DeleteWorkspace(Workspace="__snap_probe")
 
-    # SNAP has 18 banks of 256x256 pixels = 1,179,648 spectra
-    events_per_pixel = max(1, EVENTS_PER_ITER // num_hist)
+    # SNAP has 18 banks of 256x256 pixels = 1,179,648 spectra.
+    #
+    # Round `events_per_pixel` DOWN to the nearest power of 2.  Each Mantid
+    # `EventList` is backed by a `std::vector<TofEvent>` that is filled via
+    # `push_back`; its capacity therefore grows in powers of two.  If
+    # `events_per_pixel` is e.g. 142, the per-spectrum capacity rounds up to
+    # 256 -- nearly doubling resident memory across ~1.18 M spectra (an extra
+    # ~2 GB) and pushing first-iteration RSS well above the intended
+    # `BUFFER_TARGET_BYTES + EVENT_WS_TARGET_BYTES`.
+    raw_events_per_pixel = max(1, EVENTS_PER_ITER // num_hist)
+    events_per_pixel = 1 << (raw_events_per_pixel.bit_length() - 1)
     actual_events = events_per_pixel * num_hist
     logger.debug(
-        f"events_per_pixel={events_per_pixel}, "
+        f"events_per_pixel={events_per_pixel} (raw={raw_events_per_pixel}, rounded down to power of 2), "
         f"actual total events per iter={actual_events} "
         f"(~{actual_events * 16 / 1024**3:.2f} GB)"
     )
