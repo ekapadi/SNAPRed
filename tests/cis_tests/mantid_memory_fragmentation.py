@@ -26,6 +26,11 @@ Memory footprint
   ``TofEvent`` objects (16 bytes each), which is then converted to a ``Workspace2D``
   via ``ConvertToMatrixWorkspace`` (matching the ``PreserveEvents=False`` branch of
   ``LoadLiveData::exec`` in ``Framework/LiveData/src/LoadLiveData.cpp`` ~L488-535).
+* The event workspace is created with a single-bin X-axis (``BinWidth == XMax``)
+  so the resulting histogram is small (~28 MB) -- this matches the typical
+  live-data chunk shape.  Multi-bin event workspaces (e.g. ``BinWidth=1.0`` over
+  ``[0, 1000]`` us) would yield a ~28 GB Workspace2D after conversion, which is
+  not representative of the live-data path and would OOM the workstation.
 * Peak RSS during the conversion step is therefore **>= ~5 GB** (buffer + event WS
   resident simultaneously).
 
@@ -164,7 +169,14 @@ with IPTS_override():
     # ------------------------------------------------------------------
     for n_test in range(N_TESTS):
 
-        # 1. Create the event workspace with SNAP geometry
+        # 1. Create the event workspace with SNAP geometry.
+        #    BinWidth == (XMax - XMin) gives a single-bin X-axis.  This matches the
+        #    typical live-data chunk shape and -- critically -- keeps the size of the
+        #    histogram produced by `ConvertToMatrixWorkspace` below modest.  With
+        #    e.g. `BinWidth=1.0` and `XMax=1000.0`, the resulting Workspace2D would
+        #    carry 1000 bins x 1,179,648 spectra x 24 B (X+Y+E) ~ 28 GB, which is
+        #    not what the live-data `PreserveEvents=False` path produces and would
+        #    blow up RSS well past the ~5 GB target on the first iteration.
         CreateSampleWorkspace(
             OutputWorkspace=ev_ws_name,
             WorkspaceType="Event",
@@ -173,7 +185,7 @@ with IPTS_override():
             NumEvents=events_per_pixel,
             XMin=0.0,
             XMax=TOF_MAX_US,
-            BinWidth=1.0,
+            BinWidth=TOF_MAX_US,
             Random=True,
         )
         LoadInstrument(
